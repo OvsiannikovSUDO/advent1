@@ -94,7 +94,7 @@ fun main() {
                 .plus(seeds.map { it.first })
 
         keyPoints.println()
-        return keyPoints.map { applyMutation(it, mutations, 0) }.min()
+        return keyPoints.minOfOrNull { applyMutation(it, mutations, 0) } ?: 0
     }
 
     // test if implementation meets criteria from the description, like:
@@ -103,6 +103,6 @@ fun main() {
     check(part2(testInput) == 46L)
 
     val input = readInput("Day05")
-    part1(input).println() //
-    part2(input).println() //
+    part1(input).println() // 324724204
+    part2(input).println() // 104070862
 }
