@@ -70,8 +70,6 @@ fun main() {
 
     // part2
 
-    data class Road(val points: Set<Pair<Int,Int>>, val weight: Int)
-
     fun checkStep2(map: Array<CharArray>, route: Set<Pair<Int,Int>>, pos: Pair<Int,Int>): Boolean {
         if (map[pos.second][pos.first] == '#') return false
         return !route.contains(pos)
@@ -81,8 +79,8 @@ fun main() {
         map: Array<CharArray>,
         start: Pair<Int, Int>,
         finish: Pair<Int, Int>,
-        roads: MutableSet<Road>,
-        forks: MutableSet<Pair<Int, Int>>
+        roads: MutableMap<Int, MutableMap<Int, Int>>,
+        forks: MutableMap<Pair<Int, Int>, Int>
     ) {
         val variants = mutableListOf(start to 'v')
         while (variants.isNotEmpty()) {
@@ -105,14 +103,16 @@ fun main() {
                 }
             }
 
-            roads.add(Road(setOf(begin, pos), route.size))
-
             if (!forks.contains(pos)) {
-                forks.add(pos)
+                forks[pos] = forks.size
                 variants.addAll(next.map { pos to it })
             }
+            roads.computeIfAbsent(forks[begin]!!) { mutableMapOf() }[forks[pos]!!] = route.size // (Road(setOf(begin, pos), route.size))
+            roads.computeIfAbsent(forks[pos]!!) { mutableMapOf() }[forks[begin]!!] = route.size
         }
     }
+
+    data class PathsData(val begin: Int, val length: Int, val visited: Set<Int>, val left: Map<Int, Map<Int, Int>>)
 
     fun part2(input: List<String>): Int {
         val map = parseMap(input)
@@ -120,33 +120,38 @@ fun main() {
         val finish = map.size-2 to map.first().size-1
 
         // roads graph
-        val forks = mutableSetOf(start, finish)
-        val roads = mutableSetOf<Road>()
+        val forks = mutableMapOf(start to 0, finish to 1)
+        val roads = mutableMapOf<Int, MutableMap<Int,Int>>() // source to destination with weight
         parseForksAndRoads(map, start, finish, roads, forks)
+        val start2 = 0
+        val finish2 = 1
 
         "=== $forks".println()
         "=== $roads".println()
 
         // start traversal
-        val variants = mutableListOf(start to setOf<Road>())
+        val variants = mutableListOf(PathsData(start2, 0, setOf(start2), roads))
         var maxRoute = 0
         while (variants.isNotEmpty()) {
             val variant = variants.removeLast()
-            val begin = variant.first
-            val paths = variant.second
-            val visited = paths.flatMap { it.points }.toSet()
-            val next = roads.filter { begin in it.points }
-                .filter { it.points.any { p -> p !in visited }}
+            val begin = variant.begin
+            val visited = variant.visited
+            val left = variant.left
+            val next = left[begin]!!.filter { it.key !in visited }
+
             next.forEach {
-                val point = it.points.first { p -> p != begin }
-                if (point == finish) {
-                    val size = paths.plus(it).sumOf { r -> r.weight }
+                val point = it.key
+                if (point == finish2) {
+                    val size = variant.length + it.value
                     if (maxRoute < size) {
                         maxRoute = size
                         "=== ${variants.size} ! $maxRoute -> $size".println()
                     }
                 } else {
-                    variants.add(point to paths.plus(it))
+                    val newLeft = left.minus(begin)
+                    if (newLeft.values.any {l -> finish2 in l.keys}) {
+                        variants.add(PathsData(point, variant.length + it.value, visited.plus(point), newLeft))
+                    }
                 }
             }
         }
@@ -163,5 +168,11 @@ fun main() {
 
     val input = readInput("Day23")
     part1(input).println() // 2186
+
+    val start = System.currentTimeMillis()
     part2(input).println() // 6802
+    "time: ${System.currentTimeMillis() - start} ms.".println()
+    // 177385 - with fork filter
+    // 59642 - with road filter
+    // 20264 - use maps and sets for roads
 }
